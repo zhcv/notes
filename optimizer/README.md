@@ -5,16 +5,14 @@
 主要结构如下:
 ![](./res/gradients.jpg)
 
-
-
 ## 有几个概念比较有意思，我尝试说下自己的理解：
 
-   * * slots: 它们也是变量，只是依附于每个变量的一些状态信息，比如历史梯度值一类。
-   * *    non-slots: 优化器用于计算的全局信息。
-   * * compute_gradients参数：
-   * *     gate_gradients: 这个把它理解成grads要不要相互同步，可能更好想。
-   * *     colocate_gradients_with_ops：梯度和对应算子，放在同样设备上(tf.devices)。
-   * * _apply_*和_resource_apply_*这些方法会被_OptimizableVariable自动调用，很多时候重载这些方法就可以，复用apply_gradients逻辑。
+   *  slots: 它们也是变量，只是依附于每个变量的一些状态信息，比如历史梯度值一类。
+   *     non-slots: 优化器用于计算的全局信息。
+   *  compute_gradients参数：
+   *      gate_gradients: 这个把它理解成grads要不要相互同步，可能更好想。
+   *      colocate_gradients_with_ops：梯度和对应算子，放在同样设备上(tf.devices)。
+   *  _apply_'*'和_resource_apply_'*'这些方法会被_OptimizableVariable自动调用，很多时候重载这些方法就可以，复用apply_gradients逻辑。
 
 ## Adam optimizer, TensorBoard
 ```python
@@ -32,6 +30,8 @@ train_op = opt.minimize(loss)
 with tf.Session() as sess:
     writer = tf.summary.FileWriter(summaies + '/train', sess.graph)
 ```
+这个网络很简单，就是a乘以b，累加求和作为损失，再配上优化器寻优。用tensorboard --logdir=opt来打开，如下图：
+![](./res/all.png)
 
 ## Adam优化器的计算逻辑见官方注释：
 Initialization:
@@ -54,12 +54,13 @@ v_t <- beta2 * v_{t-1} + (1 - beta2) * g * g
 variable <- variable - lr_t * m_t / (sqrt(v_t) + epsilon)
 ```
 首先，注意到Adam会为每个变量创建两个slots: m和v。我们展开变量b，就能看到相应的slots，它们的名字在同样空间下，分别是Adam和Adam_1，
-![]('./res/var_b.png')
+![](./res/var_b.png)
 
+>> 然后,我们来看gradients是如何计算梯度的
+![](./res/gradients.png)
 
-
-从loss_grad来反算出MatMul_grad，从后往前反向求导。因为对于数乘$y = a * b$来说，梯度$da = b * dy$和$db = a * dy$，所以在梯度中有两个算子MatMul和MatMul_1，来计算相应的梯度。注意这两个梯度用tuple算子聚合在一起，这就是默认的GATE_OP行为：对于一个算子，它涉及的梯度要都解算完成。
+从loss_grad来反算出MatMul_grad，从后往前反向求导。因为对于数乘$ \y = a * b $来说，梯度$ \da = b * dy $和$ \db = a * dy $，所以在梯度中有两个算子MatMul和MatMul_1，来计算相应的梯度。注意这两个梯度用tuple算子聚合在一起，这就是默认的GATE_OP行为：对于一个算子，它涉及的梯度要都解算完成。
 
 最后再看Adam这块，它里面是update_b块，这是更新变量b的逻辑，然后再分别更新beta1_power和beta2_power变量。最后的(Adam)就是我们代码中的train_op。
-![]('./res/update.png')
+![](./res/update.png)
 所以当运行sess.run(train_op)时，整个网络就会从后往前，依次往前查找子图。再从前往后依次执行，完成一轮迭代。
