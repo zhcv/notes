@@ -20,8 +20,8 @@ parser.add_argument('--train-steps', default=1000, type=int,
                     help='number of training steps')
 
 
-def main(_):
-    args = parser.parse_args()
+def main(argv):
+    args = parser.parse_args(argv[1:])
     
     # Fetch the iris data
     (train_x, train_y), (test_x, test_y) = iris_data.load_data()
