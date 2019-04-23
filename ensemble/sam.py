@@ -55,6 +55,16 @@ class StackingAveragedModels(BaseEstmator, RegressorMixin, TransformerMixin):
             np.column_stack([model.predict (X) for model in base_models]).mean (axis=1)
             for base_models in self.base_models_])
         return self.meta_model_.predict(meta_features)
+"""
+主要过程简述如下:
+    1、首先需要几个模型，然后对已有的数据集进行K折交叉验证
+    2、K折交叉验证训练集，对每折的输出结果保存，最后进行合并
+    3、对于测试集T1的得到，有两种方法。注意到刚刚是2折交叉验证，M1相当于训练了2次，
+       所以一种方法是每一次训练M1，可以直接对整个test进行预测，这样2折交叉验证后测试
+       集相当于预测了2次，然后对这两列求平均得到T1。
+    4、是两层循环，第一层循环控制基模型的数目，第二层循环控制的是交叉验证的次数K，
+       对每一个基模型会训练K次，然后拼接得到预测结果P1。
+"""
 
 stacked_averaged_models = StackingAveragedModels(base_models=(ENet, GBoost, KRR), 
     # meta_model=model_lgb)
